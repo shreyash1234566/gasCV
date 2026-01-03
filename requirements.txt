@@ -21,6 +21,9 @@ plotly>=5.18.0
 python-dotenv>=1.0.0
 pyyaml>=6.0.0
 
+# AI Intelligence (FREE Groq API)
+groq>=0.4.0
+
 # Optional: For backup CDSE access
 # cdsetool>=0.2.13
 # pystac-client>=0.7.0

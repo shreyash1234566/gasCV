@@ -1,6 +1,7 @@
 """
 CO2Watch India - Streamlit Dashboard
 Interactive dashboard for monitoring thermal power plant emissions.
+Features AI-powered compliance analysis via FREE Groq API.
 """
 
 import streamlit as st
@@ -11,6 +12,9 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta
 from pathlib import Path
 import os
+
+# AI Module
+from src.ai import ClimateIntelligence
 
 # Page config
 st.set_page_config(
@@ -412,6 +416,136 @@ def render_alerts(detections):
                     st.success("✅ Alert would be posted to @CPCB_OFFICIAL")
 
 
+def render_ai_section(detections):
+    """Render AI-powered analysis section."""
+    st.subheader("🤖 AI Climate Intelligence")
+    
+    # Initialize AI agent
+    ai_agent = ClimateIntelligence()
+    
+    # Status indicator
+    if ai_agent.is_available:
+        st.success("✅ AI Connected (Groq Llama 3.3 70B)")
+    else:
+        st.warning("⚠️ AI in Demo Mode - Set GROQ_API_KEY for live analysis")
+        with st.expander("🔑 How to enable AI"):
+            st.markdown("""
+            1. Get FREE API key at: https://console.groq.com/keys
+            2. Create `.env` file in project root:
+               ```
+               GROQ_API_KEY=your_key_here
+               ```
+            3. Or set environment variable:
+               ```powershell
+               $env:GROQ_API_KEY = "your_key_here"
+               ```
+            4. Restart the dashboard
+            
+            **FREE Tier:** 30 requests/min, 14,400/day - No credit card!
+            """)
+    
+    st.markdown("---")
+    
+    # Convert dataframe to list of dicts for AI
+    detection_list = detections.to_dict('records')
+    for d in detection_list:
+        d['co2_tonnes_day'] = d.get('estimated_co2_tons_day', 0)
+        d['confidence'] = d.get('detection_confidence', 'MEDIUM')
+        d['detection_date'] = datetime.now().strftime('%Y-%m-%d')
+    
+    # AI Analysis Tabs
+    ai_tab1, ai_tab2, ai_tab3, ai_tab4, ai_tab5 = st.tabs([
+        "📋 Summary", "📜 Compliance", "📊 ESG Report", "📝 CPCB Complaint", "💰 Carbon Credits"
+    ])
+    
+    with ai_tab1:
+        st.markdown("### Quick Summary")
+        if st.button("🔍 Generate Summary", key="ai_summary"):
+            with st.spinner("Analyzing emission data..."):
+                result = ai_agent.get_summary(detection_list)
+                st.markdown(result)
+    
+    with ai_tab2:
+        st.markdown("### Regulatory Compliance Analysis")
+        st.markdown("*Analyze against CPCB, PAT, NDC, CCTS regulations*")
+        
+        plant_options = ["All Plants"] + list(detections['plant_name'].unique())
+        selected_plant = st.selectbox("Select plant to analyze:", plant_options, key="compliance_plant")
+        
+        if st.button("📜 Analyze Compliance", key="ai_compliance"):
+            with st.spinner("Running compliance analysis..."):
+                plant_filter = None if selected_plant == "All Plants" else selected_plant
+                result = ai_agent.analyze_compliance(detection_list, plant_filter)
+                st.markdown(result)
+    
+    with ai_tab3:
+        st.markdown("### ESG Report Generation")
+        st.markdown("*Generate investor-ready ESG disclosure*")
+        
+        company_name = st.text_input("Company/Portfolio Name:", value="Indian Thermal Power Portfolio", key="esg_company")
+        
+        if st.button("📊 Generate ESG Report", key="ai_esg"):
+            with st.spinner("Generating ESG report..."):
+                result = ai_agent.generate_esg_report(detection_list, company_name)
+                st.markdown(result)
+                
+                # Download button
+                st.download_button(
+                    label="📥 Download Report",
+                    data=result,
+                    file_name=f"ESG_Report_{datetime.now().strftime('%Y%m%d')}.md",
+                    mime="text/markdown"
+                )
+    
+    with ai_tab4:
+        st.markdown("### CPCB Complaint Drafting")
+        st.markdown("*Draft formal complaint based on satellite evidence*")
+        
+        target_plant = st.selectbox(
+            "Select target plant:",
+            list(detections['plant_name'].unique()),
+            key="cpcb_target"
+        )
+        complainant = st.text_input("Complainant Name:", value="[Your Name/Organization]", key="complainant")
+        
+        if st.button("📝 Draft Complaint", key="ai_cpcb"):
+            with st.spinner("Drafting complaint..."):
+                result = ai_agent.draft_cpcb_complaint(detection_list, target_plant, complainant)
+                st.markdown(result)
+                
+                # Download button
+                st.download_button(
+                    label="📥 Download Draft",
+                    data=result,
+                    file_name=f"CPCB_Complaint_{target_plant}_{datetime.now().strftime('%Y%m%d')}.md",
+                    mime="text/markdown"
+                )
+    
+    with ai_tab5:
+        st.markdown("### Carbon Credit Analysis")
+        st.markdown("*CCTS 2023 & Article 6 potential*")
+        
+        if st.button("💰 Analyze Carbon Credits", key="ai_carbon"):
+            with st.spinner("Analyzing carbon credit potential..."):
+                result = ai_agent.estimate_carbon_credits(detection_list)
+                st.markdown(result)
+    
+    # Custom Query Section
+    st.markdown("---")
+    st.markdown("### 💬 Ask AI Anything")
+    
+    custom_query = st.text_area(
+        "Ask a question about the emission data:",
+        placeholder="e.g., Which plants need immediate FGD installation? What's the total carbon footprint?",
+        key="custom_query"
+    )
+    
+    if st.button("🚀 Ask AI", key="ai_custom") and custom_query:
+        with st.spinner("Thinking..."):
+            result = ai_agent.custom_query(detection_list, custom_query)
+            st.markdown(result)
+
+
 def render_sidebar():
     """Render sidebar with controls."""
     st.sidebar.title("⚙️ Controls")
@@ -498,12 +632,18 @@ def main():
     # Render alerts
     render_alerts(filtered_detections)
     
+    st.markdown("---")
+    
+    # Render AI section
+    render_ai_section(filtered_detections)
+    
     # Footer
     st.markdown("---")
     st.markdown("""
     <div style="text-align: center; color: #666; padding: 2rem;">
-        <p><strong>CO2Watch India</strong> | Satellite-based emissions monitoring</p>
-        <p>Data: ESA Sentinel-5P TROPOMI | Method: NO₂ → CO₂ proxy conversion</p>
+        <p><strong>CO2Watch India</strong> | Satellite-based emissions monitoring + AI Intelligence</p>
+        <p>Data: ESA Sentinel-5P TROPOMI | AI: Groq Llama 3.3 70B (FREE)</p>
+        <p>Aligned with: CPCB Norms | PAT Scheme | NDC 2030 | CCTS 2023</p>
         <p>© 2026 | Built for environmental transparency</p>
     </div>
     """, unsafe_allow_html=True)
