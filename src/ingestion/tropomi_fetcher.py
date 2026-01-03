@@ -9,12 +9,25 @@ import os
 from datetime import datetime, timedelta
 from pathlib import Path
 
-# Initialize Earth Engine
+# Get project ID from environment
+GEE_PROJECT_ID = os.environ.get('GEE_PROJECT_ID', None)
+
+# Initialize Earth Engine with project ID (REQUIRED since 2024)
+def init_earth_engine(project_id: str = None):
+    """Initialize Earth Engine with project ID."""
+    proj = project_id or GEE_PROJECT_ID
+    if not proj:
+        raise RuntimeError(
+            "GEE_PROJECT_ID environment variable is required.\n"
+            "Run 'python authenticate.py' first for setup instructions."
+        )
+    ee.Initialize(project=proj)
+
 try:
-    ee.Initialize()
-except Exception:
-    print("⚠️ Earth Engine not initialized. Run 'python authenticate.py' first.")
-    raise
+    init_earth_engine()
+except Exception as e:
+    print(f"⚠️ Earth Engine not initialized: {e}")
+    print("Run 'python authenticate.py' first.")
 
 
 class TROPOMIFetcher:
