@@ -6,15 +6,23 @@ Detects NO2 plumes from thermal power plants and estimates CO2 emissions.
 import ee
 import pandas as pd
 import numpy as np
+import os
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, Dict, List
 
+# Get project ID from environment
+GEE_PROJECT_ID = os.environ.get('GEE_PROJECT_ID', None)
+
 # Initialize Earth Engine (with graceful demo mode fallback)
 GEE_AVAILABLE = False
 try:
-    ee.Initialize()
-    GEE_AVAILABLE = True
+    if GEE_PROJECT_ID:
+        ee.Initialize(project=GEE_PROJECT_ID)
+        GEE_AVAILABLE = True
+    else:
+        ee.Initialize()
+        GEE_AVAILABLE = True
 except Exception as e:
     print("⚠️ Earth Engine not initialized (demo mode enabled)")
     print(f"   Error: {str(e)}")
@@ -219,6 +227,45 @@ class PlumeDetector:
             'co2_tons_day': max(0, co2_flux * 24 / 1000)
         }
 
+    def detect_all_plants(
+        self,
+        plants_df: pd.DataFrame,
+        start_date: str,
+        end_date: str
+    ) -> pd.DataFrame:
+        """
+        Run detection for all plants in a DataFrame.
+        
+        Args:
+            plants_df: DataFrame with plant info
+            start_date: Start date
+            end_date: End date
+            
+        Returns:
+            DataFrame with detection results
+        """
+        detections = []
+        
+        for idx, plant in plants_df.iterrows():
+            print(f"🔍 Processing {plant['name']}...")
+            
+            result = self.detect_plume(
+                plant_lat=plant['latitude'],
+                plant_lon=plant['longitude'],
+                plant_name=plant['name'],
+                start_date=start_date,
+                end_date=end_date,
+                capacity_mw=plant.get('capacity_mw'),
+                fuel_type=plant.get('fuel_type', 'coal').lower()
+            )
+            
+            if result:
+                result['state'] = plant.get('state')
+                result['operator'] = plant.get('operator')
+                detections.append(result)
+        
+        return pd.DataFrame(detections)
+
 
 def _create_demo_detections(plants_df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -271,45 +318,6 @@ def _create_demo_detections(plants_df: pd.DataFrame) -> pd.DataFrame:
         detections.append(detection)
     
     return pd.DataFrame(detections)
-    
-    def detect_all_plants(
-        self,
-        plants_df: pd.DataFrame,
-        start_date: str,
-        end_date: str
-    ) -> pd.DataFrame:
-        """
-        Run detection for all plants in a DataFrame.
-        
-        Args:
-            plants_df: DataFrame with plant info
-            start_date: Start date
-            end_date: End date
-            
-        Returns:
-            DataFrame with detection results
-        """
-        detections = []
-        
-        for idx, plant in plants_df.iterrows():
-            print(f"🔍 Processing {plant['name']}...")
-            
-            result = self.detect_plume(
-                plant_lat=plant['latitude'],
-                plant_lon=plant['longitude'],
-                plant_name=plant['name'],
-                start_date=start_date,
-                end_date=end_date,
-                capacity_mw=plant.get('capacity_mw'),
-                fuel_type=plant.get('fuel_type', 'coal').lower()
-            )
-            
-            if result:
-                result['state'] = plant.get('state')
-                result['operator'] = plant.get('operator')
-                detections.append(result)
-        
-        return pd.DataFrame(detections)
 
 
 def run_detection(days_back: int = 3, use_demo: bool = False) -> pd.DataFrame:
@@ -366,19 +374,22 @@ def run_detection(days_back: int = 3, use_demo: bool = False) -> pd.DataFrame:
     print(f"✅ Detection complete! Found {len(detections)} plants with data")
     print()
     
-    # Summary
-    high_conf = detections[detections['detection_confidence'] == 'HIGH']
-    medium_conf = detections[detections['detection_confidence'] == 'MEDIUM']
-    
-    print(f"🔴 High confidence detections: {len(high_conf)}")
-    print(f"🟠 Medium confidence detections: {len(medium_conf)}")
-    print()
-    
-    if not detections.empty:
+    # Summary (handle empty DataFrame)
+    if not detections.empty and 'detection_confidence' in detections.columns:
+        high_conf = detections[detections['detection_confidence'] == 'HIGH']
+        medium_conf = detections[detections['detection_confidence'] == 'MEDIUM']
+        
+        print(f"🔴 High confidence detections: {len(high_conf)}")
+        print(f"🟠 Medium confidence detections: {len(medium_conf)}")
+        print()
+        
         print("Top 5 emitters by estimated CO2:")
         print(detections.nlargest(5, 'estimated_co2_kg_hr')[
             ['plant_name', 'state', 'estimated_co2_kg_hr', 'detection_confidence']
         ].to_string(index=False))
+    else:
+        print("⚠️ No detections found - try increasing --days parameter")
+        print("   Example: python src/processing/detect_plumes.py --days 14")
     
     print()
     print(f"📁 Results saved to: {output_file}")
