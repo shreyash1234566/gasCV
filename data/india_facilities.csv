@@ -1,0 +1,11 @@
+facility_id,facility_name,operator,lat,lon,facility_type,reported_emissions_tons_year,country,region,notes
+1,Mangala Oil Field,Cairn India / Vedanta,25.9586,71.5095,Oil Extraction,8500,India,Rajasthan,"Barmer District, Block RJ-ON-90-1. 3.6 billion barrels in-place."
+2,Barmer District Oil Fields,ONGC,25.75,71.38,Oil Extraction,12000,India,Rajasthan,"Multiple wells in Barmer area. Primary producer."
+3,Mumbai High Offshore,ONGC,19.4167,71.3333,Offshore Platform,15000,India,Maharashtra,"India's largest oil platform. 160 km offshore."
+4,Jamnagar Refinery,Reliance Industries,22.3481,69.8689,Refinery,19760,India,Gujarat,"World's largest refinery complex. 1.24M bbl/day capacity."
+5,Hazira LNG Terminal,ONGC / Shell / Total,21.161,72.664,Gas Processing,8900,India,Gujarat,"India's largest LNG terminal. 2.5M tonnes capacity."
+6,Digboi Oil Field,Oil India Ltd,27.38,95.63,Oil Refinery,3200,India,Assam,"Asia's first oil well (1866). Still operating."
+7,Cambay Basin North,ONGC,22.0,72.0,Oil Extraction,5600,India,Gujarat,"Active oil & gas fields."
+8,Ankleshwar Industrial Area,Multiple,22.0935,72.9285,Petrochemical Complex,4500,India,Gujarat,"Major industrial hub."
+9,Dahej LNG Terminal,Petronet LNG,21.9194,72.5667,Gas Processing,6700,India,Gujarat,"Secondary LNG import terminal."
+10,Tatipaka Gas Field,ONGC,14.13,79.35,Gas Extraction,2100,India,Andhra Pradesh,"Deepwater gas production."
