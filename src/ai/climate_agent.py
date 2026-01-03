@@ -259,7 +259,7 @@ Be brief but impactful. Use data-driven insights."""
 
 ---
 *🤖 Demo Mode - Connect Groq API for live analysis*
-*Get FREE API key: https://console.groq.com/keys*""",
+*Get FREE key: https://console.groq.com/keys*""",
 
             "esg_report": """## 📊 ESG Report Section (DEMO MODE)
 
@@ -284,7 +284,8 @@ Our thermal portfolio contributes to India's 45% emissions intensity reduction t
 - 500 MW biomass co-firing pilot
 
 ---
-*🤖 Demo Mode - Connect Groq API for customized reports*""",
+*🤖 Demo Mode - Connect Groq API for customized reports*
+*Get FREE key: https://console.groq.com/keys*""",
 
             "cpcb_complaint": """## 📝 CPCB Complaint Draft (DEMO MODE)
 
@@ -318,7 +319,8 @@ Our thermal portfolio contributes to India's 45% emissions intensity reduction t
 [Specific remedies requested]
 
 ---
-*🤖 Demo Mode - Connect Groq API for complete drafts*""",
+*🤖 Demo Mode - Connect Groq API for complete drafts*
+*Get FREE key: https://console.groq.com/keys*""",
 
             "carbon_credit": """## 💰 Carbon Credit Analysis (DEMO MODE)
 
@@ -342,7 +344,8 @@ Our thermal portfolio contributes to India's 45% emissions intensity reduction t
 - BEE registration: Mandatory
 
 ---
-*🤖 Demo Mode - Connect Groq API for live pricing*""",
+*🤖 Demo Mode - Connect Groq API for live pricing*
+*Get FREE key: https://console.groq.com/keys*""",
 
             "summary": """## 📋 Emission Summary (DEMO MODE)
 
@@ -358,7 +361,8 @@ Our thermal portfolio contributes to India's 45% emissions intensity reduction t
 Deploy mobile CEMS verification within 7 days
 
 ---
-*🤖 Demo Mode - Get FREE Groq API key for live analysis*"""
+*🤖 Demo Mode - Get FREE Groq API key for live analysis*
+*https://console.groq.com/keys*"""
         }
         
         # Match prompt type
