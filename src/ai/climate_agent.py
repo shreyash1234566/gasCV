@@ -19,6 +19,10 @@ import json
 from datetime import datetime
 from typing import Optional, Dict, List, Any
 
+# Load environment variables from .env file FIRST
+from dotenv import load_dotenv
+load_dotenv()
+
 # Check if groq is installed
 try:
     from groq import Groq

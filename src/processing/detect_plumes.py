@@ -11,6 +11,10 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, Dict, List
 
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv()
+
 # Get project ID from environment
 GEE_PROJECT_ID = os.environ.get('GEE_PROJECT_ID', None)
 

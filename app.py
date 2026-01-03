@@ -13,6 +13,10 @@ from datetime import datetime, timedelta
 from pathlib import Path
 import os
 
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv()
+
 # AI Module
 from src.ai import ClimateIntelligence
 
@@ -282,7 +286,7 @@ def render_map(detections):
                 'padding': '10px'
             }
         },
-        map_style='mapbox://styles/mapbox/dark-v10'
+        map_style='dark'  # Use Carto dark basemap (free, no token needed)
     )
     
     st.pydeck_chart(r, use_container_width=True)
