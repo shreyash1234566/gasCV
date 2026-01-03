@@ -1,22 +1,28 @@
-# Quick Start Script for MethaneWatch India
+# CO2Watch India - Quick Start Script
 
-Write-Host "🛰️  MethaneWatch India - Quick Start" -ForegroundColor Cyan
-Write-Host "=====================================" -ForegroundColor Cyan
+Write-Host "🌍 CO2Watch India - Quick Start" -ForegroundColor Cyan
+Write-Host "================================" -ForegroundColor Cyan
 Write-Host ""
 
 # Check if virtual environment is activated
 if ($env:VIRTUAL_ENV) {
     Write-Host "✓ Virtual environment active: $env:VIRTUAL_ENV" -ForegroundColor Green
 } else {
-    Write-Host "⚠ Virtual environment not active. Activating..." -ForegroundColor Yellow
-    .\.venv\Scripts\Activate.ps1
+    Write-Host "⚠ Virtual environment not active. Checking for .venv..." -ForegroundColor Yellow
+    if (Test-Path ".\.venv\Scripts\Activate.ps1") {
+        .\.venv\Scripts\Activate.ps1
+    } else {
+        Write-Host "Creating virtual environment..." -ForegroundColor Yellow
+        python -m venv .venv
+        .\.venv\Scripts\Activate.ps1
+    }
 }
 
 Write-Host ""
 Write-Host "📦 Checking dependencies..." -ForegroundColor Cyan
 
 # Check if key packages are installed
-$packages = @("streamlit", "geopandas", "earthaccess", "xarray")
+$packages = @("streamlit", "earthengine-api", "geemap", "pandas", "pydeck")
 $missing = @()
 
 foreach ($pkg in $packages) {
@@ -37,14 +43,26 @@ if ($missing.Count -gt 0) {
 
 Write-Host ""
 Write-Host "🌍 Project Structure:" -ForegroundColor Cyan
-Write-Host "  • app.py                    - Main dashboard"
-Write-Host "  • src/emit_fetcher.py       - NASA EMIT data"
-Write-Host "  • src/climate_trace_fetcher - Climate TRACE API"
-Write-Host "  • src/esg_report_generator  - ESG compliance"
-Write-Host "  • data/india_facilities.csv - Verified facilities"
+Write-Host "  • app.py                         - Streamlit dashboard"
+Write-Host "  • authenticate.py                - GEE authentication"
+Write-Host "  • src/ingestion/tropomi_fetcher  - TROPOMI data via GEE"
+Write-Host "  • src/processing/detect_plumes   - Plume detection algorithm"
+Write-Host "  • data/plants/*.csv              - Thermal plant database"
+Write-Host "  • config/target_plant.yaml       - Target plant config"
 Write-Host ""
 
-Write-Host "🚀 Launching Streamlit Dashboard..." -ForegroundColor Cyan
+# Check GEE authentication
+Write-Host "🔐 Checking Earth Engine authentication..." -ForegroundColor Cyan
+$geeTest = python -c "import ee; ee.Initialize(); print('OK')" 2>&1
+if ($geeTest -like "*OK*") {
+    Write-Host "  ✓ Earth Engine authenticated" -ForegroundColor Green
+} else {
+    Write-Host "  ⚠ Earth Engine not authenticated" -ForegroundColor Yellow
+    Write-Host "  Run: python authenticate.py" -ForegroundColor Yellow
+}
+
+Write-Host ""
+Write-Host "🚀 Launching CO2Watch Dashboard..." -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Dashboard will open at: http://localhost:8501" -ForegroundColor Yellow
 Write-Host "Press Ctrl+C to stop the server" -ForegroundColor Yellow

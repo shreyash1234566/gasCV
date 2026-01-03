@@ -1,0 +1,11 @@
+name,latitude,longitude,capacity_mw,state,operator,technology,fuel_type,commissioned_year
+Vindhyachal,24.098,82.672,4760,Madhya Pradesh,NTPC Limited,Subcritical,Coal,1987
+Mundra,22.839,69.717,4620,Gujarat,Adani Power,Supercritical,Coal,2012
+Sasan,24.078,81.778,3960,Madhya Pradesh,Reliance Power,Ultra-supercritical,Coal,2013
+Sipat,22.067,82.617,2980,Chhattisgarh,NTPC Limited,Supercritical,Coal,2007
+Rihand,24.218,83.054,3000,Uttar Pradesh,NTPC Limited,Subcritical,Coal,1988
+Talcher,20.962,85.213,3000,Odisha,NTPC Limited,Subcritical,Coal,1995
+Chandrapur,19.945,79.299,2920,Maharashtra,MAHAGENCO,Subcritical,Coal,1983
+Anpara,24.201,82.648,2630,Uttar Pradesh,UPRVUNL,Subcritical,Coal,1985
+Korba,22.350,82.680,2600,Chhattisgarh,NTPC Limited,Subcritical,Coal,1983
+Ramagundam,18.781,79.476,2600,Telangana,NTPC Limited,Subcritical,Coal,1988

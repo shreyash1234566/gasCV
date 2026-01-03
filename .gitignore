@@ -6,7 +6,7 @@ __pycache__/
 # Virtual environments
 .venv/
 venv/
-.env/
+.env
 .envrc
 
 # OS-generated files
@@ -17,10 +17,17 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Data and outputs
-/data/*.tmp
-/output/
+# Data files (too large for git)
+data/s5p/*.nc
+data/s5p/*.zip
+output/maps/*.html
+output/maps/*.png
+output/reports/*.pdf
 *.log
 
 # Jupyter
 .ipynb_checkpoints/
+
+# Earth Engine credentials
+.config/earthengine/
+credentials

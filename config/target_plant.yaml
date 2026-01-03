@@ -1,0 +1,28 @@
+# Target Plant Configuration for CO2Watch India
+# Priority plant for detailed analysis
+
+plant_id: NTPC_VIND
+name: "Vindhyachal Super Thermal Power Station"
+operator: "NTPC Limited"
+latitude: 24.098
+longitude: 82.672
+capacity_mw: 4760
+state: "Madhya Pradesh"
+technology: "Subcritical"
+commissioned_year: 1987
+fuel_type: "Coal (Indian bituminous)"
+
+# Emission factors (from literature)
+co2_kg_kwh: 0.95
+nox_g_kwh: 4.38
+nox_to_co2_ratio: 217
+
+# Regulatory
+spcb: "Madhya Pradesh Pollution Control Board"
+spcb_twitter: "@mppcb_official"
+cpcb_region: "Central Region"
+
+# Detection parameters
+buffer_km: 50
+min_qa_value: 0.75
+wind_source: "ERA5"
