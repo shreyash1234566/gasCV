@@ -9,6 +9,9 @@ venv/
 .env
 .envrc
 
+# Streamlit secrets (NEVER commit!)
+.streamlit/secrets.toml
+
 # OS-generated files
 .DS_Store
 Thumbs.db

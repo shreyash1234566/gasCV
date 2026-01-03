@@ -13,9 +13,18 @@ from datetime import datetime, timedelta
 from pathlib import Path
 import os
 
-# Load environment variables from .env file
+# Load environment variables from .env file (for local dev)
 from dotenv import load_dotenv
 load_dotenv()
+
+# Also load from Streamlit secrets (for cloud deployment)
+try:
+    if hasattr(st, 'secrets'):
+        for key in ['GEE_PROJECT_ID', 'GROQ_API_KEY', 'EARTHDATA_USERNAME', 'EARTHDATA_PASSWORD']:
+            if key in st.secrets:
+                os.environ[key] = st.secrets[key]
+except Exception:
+    pass  # Secrets not available (local dev)
 
 # AI Module
 from src.ai import ClimateIntelligence

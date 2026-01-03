@@ -1,4 +1,5 @@
 # CO2Watch India - Dependencies
+
 # Google Earth Engine (primary data source)
 earthengine-api>=0.1.380
 geemap>=0.32.0
@@ -24,11 +25,9 @@ pyyaml>=6.0.0
 # AI Intelligence (FREE Groq API)
 groq>=0.4.0
 
-# Optional: For backup CDSE access
-# cdsetool>=0.2.13
-# pystac-client>=0.7.0
-# openeo>=0.28.0
-
 # Geospatial utilities
 shapely>=2.0.0
 pyproj>=3.6.0
+
+# Required for Streamlit Cloud
+watchdog>=3.0.0
