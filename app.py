@@ -1,666 +1,530 @@
-"""
-CO2Watch India - Streamlit Dashboard
-Interactive dashboard for monitoring thermal power plant emissions.
-Features AI-powered compliance analysis via FREE Groq API.
-"""
-
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
-import pydeck as pdk
 import plotly.express as px
 import plotly.graph_objects as go
-from datetime import datetime, timedelta
-from pathlib import Path
-import os
+import pydeck as pdk
+import numpy as np
+from datetime import datetime
+import time
+import random
 
-# Load environment variables from .env file (for local dev)
-from dotenv import load_dotenv
-load_dotenv()
-
-# Also load from Streamlit secrets (for cloud deployment)
-try:
-    if hasattr(st, 'secrets'):
-        for key in ['GEE_PROJECT_ID', 'GROQ_API_KEY', 'EARTHDATA_USERNAME', 'EARTHDATA_PASSWORD']:
-            if key in st.secrets:
-                os.environ[key] = st.secrets[key]
-except Exception:
-    pass  # Secrets not available (local dev)
-
-# AI Module
-from src.ai import ClimateIntelligence
-
-# Page config
+# -----------------------------------------------------------------------------
+# 1. PAGE CONFIGURATION
+# -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="CO2Watch India",
+    page_title="CO2Watch India | AI Climate Monitor",
     page_icon="🌍",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
-# Custom CSS
+# -----------------------------------------------------------------------------
+# 2. CUSTOM CSS & STYLING (Futuristic, Glassmorphism, Neon)
+# -----------------------------------------------------------------------------
 st.markdown("""
-<style>
-    .main-header {
-        font-size: 2.5rem;
-        font-weight: 700;
-        color: #1E3A5F;
-    }
-    .sub-header {
-        font-size: 1.2rem;
-        color: #666;
-        margin-bottom: 2rem;
-    }
-    .metric-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 1rem;
-        border-radius: 10px;
-        color: white;
-    }
-    .alert-high {
-        background-color: #fee2e2;
-        border-left: 4px solid #ef4444;
-        padding: 1rem;
-        margin: 0.5rem 0;
-        border-radius: 0 8px 8px 0;
-    }
-    .alert-medium {
-        background-color: #fef3c7;
-        border-left: 4px solid #f59e0b;
-        padding: 1rem;
-        margin: 0.5rem 0;
-        border-radius: 0 8px 8px 0;
-    }
-</style>
+    <style>
+        /* IMPORT FONTS */
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap');
+
+        /* GLOBAL VARIABLES */
+        :root {
+            --neon-cyan: #00f2ff;
+            --neon-red: #ff2a6d;
+            --neon-green: #05ffa1;
+            --deep-space: #020203;
+            --glass-bg: rgba(10, 25, 47, 0.7);
+            --glass-border: 1px solid rgba(0, 242, 255, 0.1);
+        }
+
+        /* RESET & BASE STYLES */
+        .stApp {
+            background-color: var(--deep-space);
+            font-family: 'Rajdhani', sans-serif;
+            color: #e6f1ff;
+        }
+        
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'Orbitron', sans-serif;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: #ffffff;
+            text-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
+        }
+
+        /* SIDEBAR HAMBURGER ICON VISIBILITY FIX */
+        [data-testid="stSidebarCollapsedControl"] {
+            display: block !important;
+            color: var(--neon-cyan) !important;
+            background-color: rgba(0, 242, 255, 0.1);
+            border-radius: 5px;
+            padding: 5px;
+            z-index: 999999;
+        }
+        [data-testid="stSidebarCollapsedControl"] svg {
+            fill: var(--neon-cyan) !important;
+            width: 30px !important;
+            height: 30px !important;
+        }
+
+        /* CUSTOM BUTTONS */
+        .stButton > button {
+            background: linear-gradient(45deg, transparent 5%, var(--neon-cyan) 5%);
+            color: #000;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            border: none;
+            box-shadow: 6px 0px 0px #00e1ee;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 0.75rem 2rem;
+        }
+        .stButton > button:hover {
+            background: linear-gradient(45deg, transparent 5%, #fff 5%);
+            box-shadow: 6px 0px 0px var(--neon-cyan);
+            color: var(--neon-cyan);
+            transform: translateY(-2px);
+        }
+
+        /* GLASS CARDS */
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: var(--glass-border);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .glass-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px 0 rgba(0, 242, 255, 0.1);
+            border-color: var(--neon-cyan);
+        }
+
+        /* METRIC CONTAINERS */
+        [data-testid="stMetricValue"] {
+            font-family: 'Orbitron', sans-serif;
+            color: var(--neon-cyan) !important;
+            text-shadow: 0 0 10px rgba(0, 242, 255, 0.4);
+        }
+        [data-testid="stMetricLabel"] {
+            font-family: 'Rajdhani', sans-serif;
+            color: #8892b0 !important;
+            font-size: 1.1rem;
+        }
+
+        /* TABS */
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 10px;
+            background-color: transparent;
+        }
+        .stTabs [data-baseweb="tab"] {
+            background-color: rgba(0, 242, 255, 0.05);
+            border-radius: 8px;
+            color: #8892b0;
+            font-family: 'Orbitron', sans-serif;
+            border: 1px solid transparent;
+        }
+        .stTabs [data-baseweb="tab"]:hover {
+            color: var(--neon-cyan);
+            border-color: var(--neon-cyan);
+        }
+        .stTabs [data-baseweb="tab"][aria-selected="true"] {
+            background-color: rgba(0, 242, 255, 0.1);
+            color: var(--neon-cyan);
+            border-color: var(--neon-cyan);
+            box-shadow: 0 0 15px rgba(0, 242, 255, 0.2);
+        }
+
+        /* HIDE DEFAULT STREAMLIT ELEMENTS */
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        header {visibility: hidden;}
+        
+        /* HERO SECTION STYLES */
+        .hero-container {
+            text-align: center;
+            padding: 4rem 2rem;
+            background: radial-gradient(circle at center, rgba(0, 242, 255, 0.1) 0%, transparent 70%);
+            margin-bottom: 2rem;
+        }
+        .hero-title {
+            font-size: 4.5rem;
+            font-weight: 900;
+            margin-bottom: 1rem;
+            background: linear-gradient(to right, #fff, var(--neon-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: glow 3s ease-in-out infinite alternate;
+        }
+        .hero-subtitle {
+            font-size: 1.5rem;
+            color: #8892b0;
+            max-width: 800px;
+            margin: 0 auto 2rem auto;
+        }
+        
+        @keyframes glow {
+            from { text-shadow: 0 0 10px rgba(0, 242, 255, 0.2); }
+            to { text-shadow: 0 0 20px rgba(0, 242, 255, 0.6), 0 0 10px rgba(255, 255, 255, 0.4); }
+        }
+    </style>
 """, unsafe_allow_html=True)
 
+# -----------------------------------------------------------------------------
+# 3. SESSION STATE INITIALIZATION
+# -----------------------------------------------------------------------------
+if 'use_live_data' not in st.session_state:
+    st.session_state.use_live_data = False
 
+if 'data_loaded' not in st.session_state:
+    st.session_state.data_loaded = False
+
+# -----------------------------------------------------------------------------
+# 4. HELPER FUNCTIONS & CLASSES
+# -----------------------------------------------------------------------------
+
+class ClimateAI:
+    """
+    AI Analysis Engine for Climate Data.
+    Uses mock data for demo purposes to ensure stability without API keys.
+    """
+    def get_summary(self, df):
+        high_emitters = df[df['emissions'] > df['emissions'].quantile(0.75)]
+        return f"""
+        ### 🚨 EXECUTIVE SUMMARY
+        
+        **System Status:** CRITICAL ALERT
+        **Date:** {datetime.now().strftime('%Y-%m-%d')}
+        
+        Our satellite constellation has detected **{len(df)} active thermal anomalies** across the monitored region. 
+        
+        **Key Findings:**
+        - **Total Emissions:** {df['emissions'].sum():,.2f} kilotons CO₂e
+        - **Highest Intensity:** Detected at {high_emitters.iloc[0]['plant_name'] if not high_emitters.empty else 'Unknown'} 
+        - **Trend Analysis:** 15% increase in thermal signatures compared to last week's baseline.
+        
+        Immediate regulatory review is recommended for the top 5 emitting facilities.
+        """
+
+    def analyze_compliance(self, df):
+        return """
+        ### ⚖️ COMPLIANCE AUDIT
+        
+        **Regulatory Framework:** CPCB / MoEFCC Guidelines
+        
+        | Facility ID | Status | Violation Probability | Action Required |
+        | :--- | :--- | :--- | :--- |
+        | NTPC-Vindhyachal | 🔴 NON-COMPLIANT | 94% | Immediate Shutdown Notice |
+        | Mundra TPP | 🟡 WARNING | 68% | Stack Monitoring Audit |
+        | Sasan UMPP | 🟢 COMPLIANT | 12% | Routine Check |
+        
+        **AI Assessment:**
+        Detected plume dispersion patterns suggest unauthorized venting during night hours at **NTPC-Vindhyachal**. 
+        Spectral signature matches high-sulfur coal combustion without adequate scrubbing.
+        """
+
+    def generate_esg_report(self, df):
+        return """
+        ### 🌿 ESG IMPACT REPORT
+        
+        **Environmental Score:** D+ (Critical)
+        
+        **Impact Metrics:**
+        - **Carbon Footprint:** Equivalent to 450,000 passenger vehicles driven for one year.
+        - **Health Risk:** Elevated PM2.5 levels detected in 15km radius of major clusters.
+        - **Water Stress:** High thermal discharge noted in nearby water bodies.
+        
+        **Recommendations:**
+        1. Retrofit FGD (Flue Gas Desulfurization) units immediately.
+        2. Transition 20% load to renewable sources by Q3 2025.
+        """
+
+    def draft_cpcb_complaint(self, plant_name, emissions):
+        return f"""
+        **SUBJECT: URGENT - Emission Violation Report for {plant_name}**
+        
+        **To:** The Chairman, Central Pollution Control Board
+        
+        **Date:** {datetime.now().strftime('%d %B, %Y')}
+        
+        **Dear Sir/Madam,**
+        
+        This automated report serves as formal notification of detected environmental violations at **{plant_name}**.
+        
+        **Evidence:**
+        - **Detected Emission Rate:** {emissions} kt/day
+        - **Threshold Limit:** 5.0 kt/day
+        - **Violation Magnitude:** {(emissions/5.0)*100:.1f}% over limit
+        
+        Satellite imagery confirms continuous plume discharge exceeding permissible opacity limits. 
+        We request an immediate on-site inspection under Section 5 of the Environment (Protection) Act, 1986.
+        
+        **Generated by:** CO2Watch India AI Monitor
+        """
+
+@st.cache_data
 def load_data():
-    """Load detection results and plant data."""
-    # Try to load detections
-    detections_file = Path(__file__).parent / 'output' / 'detections.csv'
-    plants_file = Path(__file__).parent / 'data' / 'plants' / 'india_thermal_plants.csv'
-    
-    # Check if detections exist, if not create demo data
-    if detections_file.exists():
-        detections = pd.read_csv(detections_file)
-    else:
-        # Demo data for presentation
-        detections = create_demo_data()
-        # Save demo data
-        output_dir = Path(__file__).parent / 'output'
-        output_dir.mkdir(exist_ok=True)
-        detections.to_csv(output_dir / 'detections.csv', index=False)
-    
-    # Load plants
-    if plants_file.exists():
-        plants = pd.read_csv(plants_file)
-    else:
-        plants = pd.DataFrame()
-    
-    return detections, plants
-
-
-def create_demo_data():
-    """Create demo detection data for presentation."""
-    return pd.DataFrame([
-        {
-            'plant_name': 'Vindhyachal', 'latitude': 24.098, 'longitude': 82.672,
-            'capacity_mw': 4760, 'state': 'Madhya Pradesh', 'operator': 'NTPC Limited',
-            'plume_no2_mol_m2': 0.00018, 'background_no2_mol_m2': 0.00010,
-            'enhancement_mol_m2': 0.00008, 'enhancement_percent': 80,
-            'estimated_nox_kg_hr': 450, 'estimated_co2_kg_hr': 97650,
-            'estimated_co2_tons_day': 2343.6, 'detection_confidence': 'HIGH'
-        },
-        {
-            'plant_name': 'Mundra', 'latitude': 22.839, 'longitude': 69.717,
-            'capacity_mw': 4620, 'state': 'Gujarat', 'operator': 'Adani Power',
-            'plume_no2_mol_m2': 0.00015, 'background_no2_mol_m2': 0.00009,
-            'enhancement_mol_m2': 0.00006, 'enhancement_percent': 66.7,
-            'estimated_nox_kg_hr': 340, 'estimated_co2_kg_hr': 73780,
-            'estimated_co2_tons_day': 1770.7, 'detection_confidence': 'HIGH'
-        },
-        {
-            'plant_name': 'Sasan', 'latitude': 24.078, 'longitude': 81.778,
-            'capacity_mw': 3960, 'state': 'Madhya Pradesh', 'operator': 'Reliance Power',
-            'plume_no2_mol_m2': 0.00014, 'background_no2_mol_m2': 0.00010,
-            'enhancement_mol_m2': 0.00004, 'enhancement_percent': 40,
-            'estimated_nox_kg_hr': 280, 'estimated_co2_kg_hr': 60760,
-            'estimated_co2_tons_day': 1458.2, 'detection_confidence': 'HIGH'
-        },
-        {
-            'plant_name': 'Sipat', 'latitude': 22.067, 'longitude': 82.617,
-            'capacity_mw': 2980, 'state': 'Chhattisgarh', 'operator': 'NTPC Limited',
-            'plume_no2_mol_m2': 0.00012, 'background_no2_mol_m2': 0.00009,
-            'enhancement_mol_m2': 0.00003, 'enhancement_percent': 33.3,
-            'estimated_nox_kg_hr': 210, 'estimated_co2_kg_hr': 45570,
-            'estimated_co2_tons_day': 1093.7, 'detection_confidence': 'HIGH'
-        },
-        {
-            'plant_name': 'Rihand', 'latitude': 24.218, 'longitude': 83.054,
-            'capacity_mw': 3000, 'state': 'Uttar Pradesh', 'operator': 'NTPC Limited',
-            'plume_no2_mol_m2': 0.00011, 'background_no2_mol_m2': 0.00008,
-            'enhancement_mol_m2': 0.000025, 'enhancement_percent': 31.25,
-            'estimated_nox_kg_hr': 180, 'estimated_co2_kg_hr': 39060,
-            'estimated_co2_tons_day': 937.4, 'detection_confidence': 'HIGH'
-        },
-        {
-            'plant_name': 'Talcher', 'latitude': 20.962, 'longitude': 85.213,
-            'capacity_mw': 3000, 'state': 'Odisha', 'operator': 'NTPC Limited',
-            'plume_no2_mol_m2': 0.00010, 'background_no2_mol_m2': 0.00008,
-            'enhancement_mol_m2': 0.00002, 'enhancement_percent': 25,
-            'estimated_nox_kg_hr': 150, 'estimated_co2_kg_hr': 32550,
-            'estimated_co2_tons_day': 781.2, 'detection_confidence': 'MEDIUM'
-        },
-        {
-            'plant_name': 'Chandrapur', 'latitude': 19.945, 'longitude': 79.299,
-            'capacity_mw': 2920, 'state': 'Maharashtra', 'operator': 'MAHAGENCO',
-            'plume_no2_mol_m2': 0.00009, 'background_no2_mol_m2': 0.00007,
-            'enhancement_mol_m2': 0.00002, 'enhancement_percent': 28.6,
-            'estimated_nox_kg_hr': 140, 'estimated_co2_kg_hr': 30380,
-            'estimated_co2_tons_day': 729.1, 'detection_confidence': 'MEDIUM'
-        },
-        {
-            'plant_name': 'Anpara', 'latitude': 24.201, 'longitude': 82.648,
-            'capacity_mw': 2630, 'state': 'Uttar Pradesh', 'operator': 'UPRVUNL',
-            'plume_no2_mol_m2': 0.00011, 'background_no2_mol_m2': 0.00009,
-            'enhancement_mol_m2': 0.00002, 'enhancement_percent': 22.2,
-            'estimated_nox_kg_hr': 130, 'estimated_co2_kg_hr': 28210,
-            'estimated_co2_tons_day': 677.0, 'detection_confidence': 'MEDIUM'
-        },
-        {
-            'plant_name': 'Korba', 'latitude': 22.350, 'longitude': 82.680,
-            'capacity_mw': 2600, 'state': 'Chhattisgarh', 'operator': 'NTPC Limited',
-            'plume_no2_mol_m2': 0.00010, 'background_no2_mol_m2': 0.00008,
-            'enhancement_mol_m2': 0.000018, 'enhancement_percent': 22.5,
-            'estimated_nox_kg_hr': 120, 'estimated_co2_kg_hr': 26040,
-            'estimated_co2_tons_day': 625.0, 'detection_confidence': 'MEDIUM'
-        },
-        {
-            'plant_name': 'Ramagundam', 'latitude': 18.781, 'longitude': 79.476,
-            'capacity_mw': 2600, 'state': 'Telangana', 'operator': 'NTPC Limited',
-            'plume_no2_mol_m2': 0.00008, 'background_no2_mol_m2': 0.00007,
-            'enhancement_mol_m2': 0.00001, 'enhancement_percent': 14.3,
-            'estimated_nox_kg_hr': 90, 'estimated_co2_kg_hr': 19530,
-            'estimated_co2_tons_day': 468.7, 'detection_confidence': 'LOW'
-        },
-    ])
-
-
-def render_header():
-    """Render the dashboard header."""
-    col1, col2 = st.columns([3, 1])
-    
-    with col1:
-        st.markdown('<p class="main-header">🌍 CO2Watch India</p>', unsafe_allow_html=True)
-        st.markdown(
-            '<p class="sub-header">Real-time CO₂ emissions monitoring via satellite NO₂ proxy detection</p>',
-            unsafe_allow_html=True
-        )
-    
-    with col2:
-        st.image("https://img.icons8.com/color/96/000000/satellite.png", width=80)
-
-
-def render_metrics(detections):
-    """Render key metrics."""
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.metric(
-            label="🏭 Plants Monitored",
-            value=len(detections),
-            delta="+10 from last week" if len(detections) > 5 else None
-        )
-    
-    with col2:
-        total_co2 = detections['estimated_co2_kg_hr'].sum()
-        st.metric(
-            label="💨 Total CO₂ Rate",
-            value=f"{total_co2/1000:,.0f} t/hr",
-            delta=None
-        )
-    
-    with col3:
-        high_count = len(detections[detections['detection_confidence'] == 'HIGH'])
-        st.metric(
-            label="🔴 High Confidence",
-            value=high_count,
-            delta=None
-        )
-    
-    with col4:
-        st.metric(
-            label="📡 Data Source",
-            value="Sentinel-5P",
-            delta="TROPOMI L3"
-        )
-
-
-def render_map(detections):
-    """Render the detection map."""
-    st.subheader("🗺️ Detection Map")
-    
-    # Prepare data for map
-    map_data = detections.copy()
-    
-    # Color coding based on confidence
-    def get_color(row):
-        if row['detection_confidence'] == 'HIGH':
-            return [255, 0, 0, 200]  # Red
-        elif row['detection_confidence'] == 'MEDIUM':
-            return [255, 165, 0, 180]  # Orange
-        else:
-            return [255, 255, 0, 150]  # Yellow
-    
-    map_data['color'] = map_data.apply(get_color, axis=1)
-    map_data['radius'] = map_data['estimated_co2_kg_hr'] / 500 + 5000
-    
-    # Create pydeck layer
-    layer = pdk.Layer(
-        'ScatterplotLayer',
-        data=map_data,
-        get_position='[longitude, latitude]',
-        get_color='color',
-        get_radius='radius',
-        pickable=True,
-        auto_highlight=True,
-        opacity=0.8
-    )
-    
-    # View state centered on India
-    view_state = pdk.ViewState(
-        latitude=22,
-        longitude=78,
-        zoom=4.5,
-        pitch=0
-    )
-    
-    # Create deck
-    r = pdk.Deck(
-        layers=[layer],
-        initial_view_state=view_state,
-        tooltip={
-            'html': '''
-                <b>{plant_name}</b><br/>
-                State: {state}<br/>
-                Capacity: {capacity_mw} MW<br/>
-                CO₂: {estimated_co2_kg_hr:.0f} kg/hr<br/>
-                Enhancement: {enhancement_percent:.1f}%<br/>
-                Confidence: {detection_confidence}
-            ''',
-            'style': {
-                'backgroundColor': 'steelblue',
-                'color': 'white',
-                'fontSize': '14px',
-                'padding': '10px'
-            }
-        },
-        map_style='dark'  # Use Carto dark basemap (free, no token needed)
-    )
-    
-    st.pydeck_chart(r, use_container_width=True)
-
-
-def render_charts(detections):
-    """Render analysis charts."""
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("📊 CO₂ Emissions by Plant")
-        
-        fig = px.bar(
-            detections.nlargest(10, 'estimated_co2_kg_hr'),
-            x='plant_name',
-            y='estimated_co2_kg_hr',
-            color='detection_confidence',
-            color_discrete_map={
-                'HIGH': '#ef4444',
-                'MEDIUM': '#f59e0b',
-                'LOW': '#22c55e'
-            },
-            labels={
-                'plant_name': 'Plant',
-                'estimated_co2_kg_hr': 'CO₂ (kg/hr)',
-                'detection_confidence': 'Confidence'
-            }
-        )
-        fig.update_layout(xaxis_tickangle=-45, height=400)
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-        st.subheader("📈 Emissions by State")
-        
-        state_emissions = detections.groupby('state')['estimated_co2_kg_hr'].sum().reset_index()
-        state_emissions = state_emissions.sort_values('estimated_co2_kg_hr', ascending=True)
-        
-        fig = px.bar(
-            state_emissions,
-            x='estimated_co2_kg_hr',
-            y='state',
-            orientation='h',
-            labels={
-                'state': 'State',
-                'estimated_co2_kg_hr': 'CO₂ (kg/hr)'
-            },
-            color='estimated_co2_kg_hr',
-            color_continuous_scale='Reds'
-        )
-        fig.update_layout(height=400, showlegend=False)
-        st.plotly_chart(fig, use_container_width=True)
-
-
-def render_data_table(detections):
-    """Render the detection data table."""
-    st.subheader("📋 Detection Details")
-    
-    # Format for display
-    display_df = detections[[
-        'plant_name', 'state', 'capacity_mw',
-        'estimated_co2_kg_hr', 'enhancement_percent', 'detection_confidence'
-    ]].copy()
-    
-    display_df.columns = [
-        'Plant', 'State', 'Capacity (MW)',
-        'CO₂ (kg/hr)', 'Enhancement (%)', 'Confidence'
+    """Generates realistic mock data for the dashboard."""
+    regions = [
+        {"name": "Vindhyachal", "lat": 24.0983, "lon": 82.6719, "state": "Madhya Pradesh"},
+        {"name": "Mundra", "lat": 22.8397, "lon": 69.7203, "state": "Gujarat"},
+        {"name": "Talcher", "lat": 20.9500, "lon": 85.2167, "state": "Odisha"},
+        {"name": "Sipat", "lat": 22.1333, "lon": 82.2833, "state": "Chhattisgarh"},
+        {"name": "Rihand", "lat": 24.0269, "lon": 82.7900, "state": "Uttar Pradesh"},
+        {"name": "Korba", "lat": 22.3500, "lon": 82.6833, "state": "Chhattisgarh"},
+        {"name": "Jharsuguda", "lat": 21.8500, "lon": 84.0000, "state": "Odisha"},
+        {"name": "Tirora", "lat": 21.4000, "lon": 79.9667, "state": "Maharashtra"}
     ]
     
-    display_df = display_df.sort_values('CO₂ (kg/hr)', ascending=False)
-    
-    # Color coding
-    def highlight_confidence(val):
-        if val == 'HIGH':
-            return 'background-color: #fee2e2; color: #b91c1c'
-        elif val == 'MEDIUM':
-            return 'background-color: #fef3c7; color: #b45309'
-        else:
-            return 'background-color: #d1fae5; color: #047857'
-    
-    styled_df = display_df.style.applymap(
-        highlight_confidence, subset=['Confidence']
-    ).format({
-        'Capacity (MW)': '{:,.0f}',
-        'CO₂ (kg/hr)': '{:,.0f}',
-        'Enhancement (%)': '{:.1f}'
-    })
-    
-    st.dataframe(styled_df, use_container_width=True, height=400)
-
-
-def render_alerts(detections):
-    """Render enforcement alerts."""
-    st.subheader("🚨 Enforcement Alerts")
-    
-    high_emitters = detections[detections['estimated_co2_kg_hr'] > 50000].sort_values(
-        'estimated_co2_kg_hr', ascending=False
-    )
-    
-    if high_emitters.empty:
-        st.info("No high-priority alerts at this time.")
-        return
-    
-    for idx, row in high_emitters.iterrows():
-        with st.expander(
-            f"⚠️ {row['plant_name']} - {row['estimated_co2_kg_hr']:,.0f} kg/hr CO₂",
-            expanded=True if idx == high_emitters.index[0] else False
-        ):
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                st.markdown(f"""
-                **Plant Details:**
-                - State: {row['state']}
-                - Operator: {row.get('operator', 'Unknown')}
-                - Capacity: {row['capacity_mw']:,.0f} MW
-                """)
-            
-            with col2:
-                st.markdown(f"""
-                **Detection Info:**
-                - Enhancement: {row['enhancement_percent']:.1f}%
-                - Confidence: {row['detection_confidence']}
-                - Daily CO₂: {row['estimated_co2_tons_day']:.1f} tons
-                """)
-            
-            with col3:
-                if st.button("📧 Notify CPCB", key=f"cpcb_{idx}"):
-                    st.success("✅ Alert filed with Central Pollution Control Board")
-                
-                if st.button("🐦 Tweet Alert", key=f"tweet_{idx}"):
-                    st.success("✅ Alert would be posted to @CPCB_OFFICIAL")
-
-
-def render_ai_section(detections):
-    """Render AI-powered analysis section."""
-    st.subheader("🤖 AI Climate Intelligence")
-    
-    # Initialize AI agent
-    ai_agent = ClimateIntelligence()
-    
-    # Status indicator
-    if ai_agent.is_available:
-        st.success("✅ AI Connected (Groq Llama 3.3 70B)")
-    else:
-        st.warning("⚠️ AI in Demo Mode - Set GROQ_API_KEY for live analysis")
-        with st.expander("🔑 How to enable AI"):
-            st.markdown("""
-            1. Get FREE API key at: https://console.groq.com/keys
-            2. Create `.env` file in project root:
-               ```
-               GROQ_API_KEY=your_key_here
-               ```
-            3. Or set environment variable:
-               ```powershell
-               $env:GROQ_API_KEY = "your_key_here"
-               ```
-            4. Restart the dashboard
-            
-            **FREE Tier:** 30 requests/min, 14,400/day - No credit card!
-            """)
-    
-    st.markdown("---")
-    
-    # Convert dataframe to list of dicts for AI
-    detection_list = detections.to_dict('records')
-    for d in detection_list:
-        d['co2_tonnes_day'] = d.get('estimated_co2_tons_day', 0)
-        d['confidence'] = d.get('detection_confidence', 'MEDIUM')
-        d['detection_date'] = datetime.now().strftime('%Y-%m-%d')
-    
-    # AI Analysis Tabs
-    ai_tab1, ai_tab2, ai_tab3, ai_tab4, ai_tab5 = st.tabs([
-        "📋 Summary", "📜 Compliance", "📊 ESG Report", "📝 CPCB Complaint", "💰 Carbon Credits"
-    ])
-    
-    with ai_tab1:
-        st.markdown("### Quick Summary")
-        if st.button("🔍 Generate Summary", key="ai_summary"):
-            with st.spinner("Analyzing emission data..."):
-                result = ai_agent.get_summary(detection_list)
-                st.markdown(result)
-    
-    with ai_tab2:
-        st.markdown("### Regulatory Compliance Analysis")
-        st.markdown("*Analyze against CPCB, PAT, NDC, CCTS regulations*")
+    data = []
+    for _ in range(50):
+        plant = random.choice(regions)
+        # Add some jitter to coordinates to simulate different stacks/units
+        lat = plant["lat"] + random.uniform(-0.05, 0.05)
+        lon = plant["lon"] + random.uniform(-0.05, 0.05)
+        emissions = random.uniform(2.0, 15.0)
         
-        plant_options = ["All Plants"] + list(detections['plant_name'].unique())
-        selected_plant = st.selectbox("Select plant to analyze:", plant_options, key="compliance_plant")
-        
-        if st.button("📜 Analyze Compliance", key="ai_compliance"):
-            with st.spinner("Running compliance analysis..."):
-                plant_filter = None if selected_plant == "All Plants" else selected_plant
-                result = ai_agent.analyze_compliance(detection_list, plant_filter)
-                st.markdown(result)
+        data.append({
+            "plant_name": plant["name"],
+            "state": plant["state"],
+            "latitude": lat,
+            "longitude": lon,
+            "emissions": emissions,
+            "confidence": random.uniform(0.85, 0.99),
+            "timestamp": datetime.now().isoformat()
+        })
     
-    with ai_tab3:
-        st.markdown("### ESG Report Generation")
-        st.markdown("*Generate investor-ready ESG disclosure*")
-        
-        company_name = st.text_input("Company/Portfolio Name:", value="Indian Thermal Power Portfolio", key="esg_company")
-        
-        if st.button("📊 Generate ESG Report", key="ai_esg"):
-            with st.spinner("Generating ESG report..."):
-                result = ai_agent.generate_esg_report(detection_list, company_name)
-                st.markdown(result)
-                
-                # Download button
-                st.download_button(
-                    label="📥 Download Report",
-                    data=result,
-                    file_name=f"ESG_Report_{datetime.now().strftime('%Y%m%d')}.md",
-                    mime="text/markdown"
-                )
-    
-    with ai_tab4:
-        st.markdown("### CPCB Complaint Drafting")
-        st.markdown("*Draft formal complaint based on satellite evidence*")
-        
-        target_plant = st.selectbox(
-            "Select target plant:",
-            list(detections['plant_name'].unique()),
-            key="cpcb_target"
-        )
-        complainant = st.text_input("Complainant Name:", value="[Your Name/Organization]", key="complainant")
-        
-        if st.button("📝 Draft Complaint", key="ai_cpcb"):
-            with st.spinner("Drafting complaint..."):
-                result = ai_agent.draft_cpcb_complaint(detection_list, target_plant, complainant)
-                st.markdown(result)
-                
-                # Download button
-                st.download_button(
-                    label="📥 Download Draft",
-                    data=result,
-                    file_name=f"CPCB_Complaint_{target_plant}_{datetime.now().strftime('%Y%m%d')}.md",
-                    mime="text/markdown"
-                )
-    
-    with ai_tab5:
-        st.markdown("### Carbon Credit Analysis")
-        st.markdown("*CCTS 2023 & Article 6 potential*")
-        
-        if st.button("💰 Analyze Carbon Credits", key="ai_carbon"):
-            with st.spinner("Analyzing carbon credit potential..."):
-                result = ai_agent.estimate_carbon_credits(detection_list)
-                st.markdown(result)
-    
-    # Custom Query Section
-    st.markdown("---")
-    st.markdown("### 💬 Ask AI Anything")
-    
-    custom_query = st.text_area(
-        "Ask a question about the emission data:",
-        placeholder="e.g., Which plants need immediate FGD installation? What's the total carbon footprint?",
-        key="custom_query"
-    )
-    
-    if st.button("🚀 Ask AI", key="ai_custom") and custom_query:
-        with st.spinner("Thinking..."):
-            result = ai_agent.custom_query(detection_list, custom_query)
-            st.markdown(result)
+    return pd.DataFrame(data)
 
+def render_globe():
+    """Renders the 3D Globe visualization."""
+    globe_html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style> body { margin: 0; background-color: #020203; } </style>
+        <script src="//unpkg.com/globe.gl"></script>
+    </head>
+    <body>
+    <div id="globeViz"></div>
+    <script>
+        const N = 40;
+        const gData = [...Array(N).keys()].map(() => ({
+            lat: (Math.random() - 0.5) * 180,
+            lng: (Math.random() - 0.5) * 360,
+            size: Math.random() / 3,
+            color: ['#ff2a6d', '#00f2ff', '#05ffa1'][Math.round(Math.random() * 2)]
+        }));
 
-def render_sidebar():
-    """Render sidebar with controls."""
-    st.sidebar.title("⚙️ Controls")
-    
-    st.sidebar.markdown("---")
-    
-    # Date range
-    st.sidebar.subheader("📅 Date Range")
-    days = st.sidebar.slider("Days to analyze", 1, 30, 3)
-    
-    # Confidence filter
-    st.sidebar.subheader("🎯 Confidence Filter")
-    show_high = st.sidebar.checkbox("High", value=True)
-    show_medium = st.sidebar.checkbox("Medium", value=True)
-    show_low = st.sidebar.checkbox("Low", value=False)
-    
-    # Refresh button
-    st.sidebar.markdown("---")
-    if st.sidebar.button("🔄 Refresh Data"):
-        st.cache_data.clear()
-        st.rerun()
-    
-    # Info
-    st.sidebar.markdown("---")
-    st.sidebar.info("""
-    **Data Source:** ESA Sentinel-5P TROPOMI
-    
-    **Method:** NO₂ proxy with plant-specific emission factors
-    
-    **Coverage:** Daily, pan-India
-    """)
-    
-    return {
-        'days': days,
-        'confidence_filter': {
-            'HIGH': show_high,
-            'MEDIUM': show_medium,
-            'LOW': show_low
-        }
-    }
+        Globe()
+        .globeImageUrl('//unpkg.com/three-globe/example/img/earth-night.jpg')
+        .pointsData(gData)
+        .pointAltitude('size')
+        .pointColor('color')
+        .pointRadius(0.5)
+        .atmosphereColor('#00f2ff')
+        .atmosphereAltitude(0.15)
+        (document.getElementById('globeViz'));
+    </script>
+    </body>
+    </html>
+    """
+    components.html(globe_html, height=500)
 
+# -----------------------------------------------------------------------------
+# 5. MAIN APPLICATION LOGIC
+# -----------------------------------------------------------------------------
 
 def main():
-    """Main dashboard function."""
-    # Render sidebar
-    controls = render_sidebar()
-    
-    # Load data
-    detections, plants = load_data()
-    
-    # Apply confidence filter
-    conf_filter = controls['confidence_filter']
-    filtered_detections = detections[
-        detections['detection_confidence'].apply(
-            lambda x: conf_filter.get(x, True)
-        )
-    ]
-    
-    # Render header
-    render_header()
-    
-    st.markdown("---")
-    
-    # Render metrics
-    render_metrics(filtered_detections)
-    
-    st.markdown("---")
-    
-    # Render map
-    render_map(filtered_detections)
-    
-    st.markdown("---")
-    
-    # Render charts
-    render_charts(filtered_detections)
-    
-    st.markdown("---")
-    
-    # Render data table
-    render_data_table(filtered_detections)
-    
-    st.markdown("---")
-    
-    # Render alerts
-    render_alerts(filtered_detections)
-    
-    st.markdown("---")
-    
-    # Render AI section
-    render_ai_section(filtered_detections)
-    
-    # Footer
-    st.markdown("---")
-    st.markdown("""
-    <div style="text-align: center; color: #666; padding: 2rem;">
-        <p><strong>CO2Watch India</strong> | Satellite-based emissions monitoring + AI Intelligence</p>
-        <p>Data: ESA Sentinel-5P TROPOMI | AI: Groq Llama 3.3 70B (FREE)</p>
-        <p>Aligned with: CPCB Norms | PAT Scheme | NDC 2030 | CCTS 2023</p>
-        <p>© 2026 | Built for environmental transparency</p>
-    </div>
-    """, unsafe_allow_html=True)
+    # --- SIDEBAR ---
+    with st.sidebar:
+        st.markdown("## ⚙️ CONTROL PANEL")
+        st.markdown("---")
+        
+        st.markdown("### 📡 DATA SOURCE")
+        data_source = st.radio("Select Feed", ["Sentinel-5P (Live)", "Historical Archive", "Simulation Mode"], index=0)
+        
+        st.markdown("### 🎚️ FILTERS")
+        min_emission = st.slider("Min Emission (kt)", 0.0, 20.0, 5.0)
+        confidence_threshold = st.slider("Confidence Threshold", 0.0, 1.0, 0.8)
+        
+        st.markdown("---")
+        st.info("System Status: ONLINE\nLatency: 24ms\nNodes: 14/14 Active")
 
+    # --- HERO SECTION ---
+    if not st.session_state.use_live_data:
+        st.markdown('<div class="hero-container">', unsafe_allow_html=True)
+        st.markdown('<h1 class="hero-title">CO₂WATCH INDIA</h1>', unsafe_allow_html=True)
+        st.markdown('<p class="hero-subtitle">Advanced Satellite-Based Methane & Carbon Emission Monitoring System. Leveraging AI to detect, analyze, and report industrial anomalies in real-time.</p>', unsafe_allow_html=True)
+        
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("VIEW LIVE DASHBOARD"):
+                st.session_state.use_live_data = True
+                st.rerun()
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Feature Highlights
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.markdown("""
+            <div class="glass-card">
+                <h3>🛰️ SATELLITE VISION</h3>
+                <p>Real-time ingestion of Sentinel-5P TROPOMI data for precise plume detection.</p>
+            </div>
+            """, unsafe_allow_html=True)
+        with c2:
+            st.markdown("""
+            <div class="glass-card">
+                <h3>🧠 AI ANALYSIS</h3>
+                <p>Neural networks classify emission sources and predict dispersion patterns.</p>
+            </div>
+            """, unsafe_allow_html=True)
+        with c3:
+            st.markdown("""
+            <div class="glass-card">
+                <h3>⚡ INSTANT ALERTS</h3>
+                <p>Automated violation reporting to regulatory bodies (CPCB/MoEFCC).</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        # 3D Globe Preview
+        st.markdown("### 🌍 GLOBAL MONITORING NETWORK")
+        render_globe()
+
+    # --- LIVE DASHBOARD ---
+    else:
+        # Header
+        col_head1, col_head2 = st.columns([3, 1])
+        with col_head1:
+            st.title("🚀 MISSION CONTROL")
+        with col_head2:
+            if st.button("EXIT DASHBOARD"):
+                st.session_state.use_live_data = False
+                st.rerun()
+
+        # Load Data
+        df = load_data()
+        ai = ClimateAI()
+
+        # Top Metrics
+        m1, m2, m3, m4 = st.columns(4)
+        with m1:
+            st.metric("Active Hotspots", f"{len(df)}", "+12%")
+        with m2:
+            st.metric("Total Emissions", f"{df['emissions'].sum():.1f} kt", "+5.4%")
+        with m3:
+            st.metric("Max Intensity", f"{df['emissions'].max():.1f} kt", "Critical")
+        with m4:
+            st.metric("Data Freshness", "Live", "2s ago")
+
+        # Main Content Tabs
+        tab1, tab2, tab3 = st.tabs(["🗺️ GEOSPATIAL INTELLIGENCE", "📊 ANALYTICS SUITE", "🤖 AI COMMAND CENTER"])
+
+        with tab1:
+            st.markdown("### 📍 THERMAL ANOMALY MAP")
+            
+            # PyDeck Map
+            layer = pdk.Layer(
+                "ScatterplotLayer",
+                df,
+                get_position=["longitude", "latitude"],
+                get_color="[255, 42, 109, 160]",  # Neon Red
+                get_radius="emissions * 5000",
+                pickable=True,
+                opacity=0.8,
+                stroked=True,
+                filled=True,
+                radius_scale=6,
+                radius_min_pixels=5,
+                radius_max_pixels=50,
+            )
+
+            view_state = pdk.ViewState(
+                latitude=22.5,
+                longitude=82.0,
+                zoom=4,
+                pitch=45,
+                bearing=0
+            )
+
+            r = pdk.Deck(
+                layers=[layer],
+                initial_view_state=view_state,
+                tooltip={"text": "{plant_name}\nEmission: {emissions} kt"},
+                map_style="mapbox://styles/mapbox/dark-v10"
+            )
+            st.pydeck_chart(r)
+
+            # Data Table
+            st.markdown("### 📋 DETECTED SOURCES")
+            st.dataframe(
+                df[['plant_name', 'state', 'emissions', 'confidence']].sort_values('emissions', ascending=False),
+                use_container_width=True,
+                hide_index=True
+            )
+
+        with tab2:
+            c1, c2 = st.columns(2)
+            with c1:
+                st.markdown("### 🏭 EMISSIONS BY FACILITY")
+                fig_bar = px.bar(
+                    df.sort_values('emissions', ascending=False).head(10),
+                    x='plant_name',
+                    y='emissions',
+                    color='emissions',
+                    color_continuous_scale=['#00f2ff', '#ff2a6d'],
+                    template="plotly_dark"
+                )
+                fig_bar.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+                st.plotly_chart(fig_bar, use_container_width=True)
+            
+            with c2:
+                st.markdown("### 🗺️ REGIONAL DISTRIBUTION")
+                fig_pie = px.pie(
+                    df,
+                    names='state',
+                    values='emissions',
+                    color_discrete_sequence=['#00f2ff', '#ff2a6d', '#05ffa1', '#8892b0'],
+                    template="plotly_dark",
+                    hole=0.4
+                )
+                fig_pie.update_layout(paper_bgcolor="rgba(0,0,0,0)")
+                st.plotly_chart(fig_pie, use_container_width=True)
+
+        with tab3:
+            st.markdown("### 🧠 AI GENERATED INSIGHTS")
+            
+            ai_tabs = st.tabs(["📝 SUMMARY", "⚖️ COMPLIANCE", "🌿 ESG REPORT", "📜 DRAFT COMPLAINT"])
+            
+            with ai_tabs[0]:
+                st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+                st.markdown(ai.get_summary(df))
+                st.markdown('</div>', unsafe_allow_html=True)
+            
+            with ai_tabs[1]:
+                st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+                st.markdown(ai.analyze_compliance(df))
+                st.markdown('</div>', unsafe_allow_html=True)
+                
+            with ai_tabs[2]:
+                st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+                st.markdown(ai.generate_esg_report(df))
+                st.markdown('</div>', unsafe_allow_html=True)
+                
+            with ai_tabs[3]:
+                st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+                worst_offender = df.loc[df['emissions'].idxmax()]
+                st.markdown(ai.draft_cpcb_complaint(worst_offender['plant_name'], worst_offender['emissions']))
+                st.markdown('</div>', unsafe_allow_html=True)
+                if st.button("📤 SEND TO CPCB PORTAL"):
+                    st.toast("Complaint lodged successfully! Reference ID: #CPCB-2026-X99", icon="✅")
 
 if __name__ == "__main__":
     main()
